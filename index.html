@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CosyVoice语音合成器</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 头部导航 -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-microphone-alt"></i>
+                    <h1>CosyVoice语音合成器</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="settingsBtn">
+                        <i class="fas fa-cog"></i>
+                        设置
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区域 -->
+        <main class="main-content">
+            <!-- 功能选项卡 -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="text-tts">
+                    <i class="fas fa-keyboard"></i>
+                    文本转语音
+                </button>
+                <button class="tab-btn" data-tab="file-tts">
+                    <i class="fas fa-file-alt"></i>
+                    文件转语音
+                </button>
+                <button class="tab-btn" data-tab="voice-clone">
+                    <i class="fas fa-clone"></i>
+                    音色克隆
+                </button>
+            </div>
+
+            <!-- 文本转语音面板 -->
+            <div class="tab-content active" id="text-tts">
+                <div class="panel">
+                    <h2><i class="fas fa-keyboard"></i> 文本转语音</h2>
+                    <div class="form-group">
+                        <label for="textInput">输入文本：</label>
+                        <textarea id="textInput" placeholder="请输入要转换为语音的文本..." rows="6"></textarea>
+                        <div class="char-count">
+                            <span id="charCount">0</span> / 1500 字符
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="voiceSelect">选择音色：</label>
+                            <select id="voiceSelect">
+                                <option value="中文女">中文女</option>
+                                <option value="中文男">中文男</option>
+                                <option value="英文女">英文女</option>
+                                <option value="英文男">英文男</option>
+                                <option value="日语男">日语男</option>
+                                <option value="粤语女">粤语女</option>
+                                <option value="韩语女">韩语女</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="speedSlider">语速：<span id="speedValue">1.0</span></label>
+                            <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="synthesizeBtn">
+                            <i class="fas fa-play"></i>
+                            开始合成
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文件转语音面板 -->
+            <div class="tab-content" id="file-tts">
+                <div class="panel">
+                    <h2><i class="fas fa-file-alt"></i> 文件转语音</h2>
+                    
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>点击选择或拖拽TXT文件到此处</p>
+                        <small>支持.txt格式文件</small>
+                    </div>
+                    
+                    <div class="file-info" id="fileInfo" style="display: none;">
+                        <div class="file-details">
+                            <i class="fas fa-file-text"></i>
+                            <div>
+                                <div class="file-name" id="fileName"></div>
+                                <div class="file-stats">
+                                    <span id="fileSize"></span> | 
+                                    <span id="fileChars"></span> 字符 | 
+                                    <span id="fileSegments"></span> 段落 |
+                                    <span id="fileEncoding"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-secondary" id="clearFileBtn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fileVoiceSelect">选择音色：</label>
+                            <select id="fileVoiceSelect">
+                                <option value="中文女">中文女</option>
+                                <option value="中文男">中文男</option>
+                                <option value="英文女">英文女</option>
+                                <option value="英文男">英文男</option>
+                                <option value="日语男">日语男</option>
+                                <option value="粤语女">粤语女</option>
+                                <option value="韩语女">韩语女</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="fileSpeedSlider">语速：<span id="fileSpeedValue">1.0</span></label>
+                            <input type="range" id="fileSpeedSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="segmentSize">分段大小（字符）：</label>
+                        <input type="number" id="segmentSize" value="1500" min="100" max="3000">
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="batchSynthesizeBtn" disabled>
+                            <i class="fas fa-cogs"></i>
+                            批量合成
+                        </button>
+                    </div>
+                    
+                    <div class="progress-container" id="progressContainer" style="display: none;">
+                        <div class="progress-info">
+                            <span id="progressText">准备中...</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音色克隆面板 -->
+            <div class="tab-content" id="voice-clone">
+                <div class="panel">
+                    <h2><i class="fas fa-clone"></i> 音色克隆</h2>
+                    
+                    <div class="form-group">
+                        <label>参考音频：</label>
+                        <div class="audio-upload-area" id="audioUploadArea">
+                            <i class="fas fa-music"></i>
+                            <p>点击选择音频文件</p>
+                            <small>支持.wav, .mp3, .m4a格式</small>
+                        </div>
+                        <div class="audio-info" id="audioInfo" style="display: none;">
+                            <div class="audio-details">
+                                <i class="fas fa-file-audio"></i>
+                                <div>
+                                    <div class="audio-name" id="audioName"></div>
+                                    <div class="audio-size" id="audioSize"></div>
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-secondary" id="clearAudioBtn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="referenceText">参考音频对应文本（同语言克隆需要）：</label>
+                        <textarea id="referenceText" placeholder="请输入参考音频中说话的内容..." rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cloneText">要合成的文本：</label>
+                        <textarea id="cloneText" placeholder="请输入要用克隆音色合成的文本..." rows="4"></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cloneSpeedSlider">语速：<span id="cloneSpeedValue">1.0</span></label>
+                            <input type="range" id="cloneSpeedSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="cloneVersion">模型版本：</label>
+                            <select id="cloneVersion">
+                                <option value="v2">v2 (高质量)</option>
+                                <option value="v1">v1 (快速)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="cloneBtn" disabled>
+                            <i class="fas fa-magic"></i>
+                            开始克隆
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 设置模态框 -->
+        <div class="modal" id="settingsModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-cog"></i> 设置</h3>
+                    <button class="modal-close" id="closeSettingsBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="apiUrl">CosyVoice API地址：</label>
+                        <input type="text" id="apiUrl" placeholder="http://127.0.0.1:9933">
+                        <button class="btn btn-sm btn-secondary" id="testConnectionBtn">
+                            <i class="fas fa-plug"></i>
+                            测试连接
+                        </button>
+                    </div>
+                    <div class="connection-status" id="connectionStatus"></div>
+                    
+                    <div class="form-group">
+                        <label for="defaultSavePath">默认保存位置：</label>
+                        <div class="input-group">
+                            <input type="text" id="defaultSavePath" placeholder="留空则使用默认位置 (data/txt_to_audio)" readonly>
+                            <button class="btn btn-sm btn-secondary" id="selectSavePathBtn">
+                                <i class="fas fa-folder-open"></i>
+                                选择文件夹
+                            </button>
+                            <button class="btn btn-sm btn-secondary" id="clearSavePathBtn">
+                                <i class="fas fa-times"></i>
+                                清除
+                            </button>
+                        </div>
+                        <small class="form-text">未设置时将保存到程序目录下的 data/txt_to_audio 文件夹</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancelSettingsBtn">取消</button>
+                    <button class="btn btn-primary" id="saveSettingsBtn">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载遮罩 -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p id="loadingText">处理中...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
