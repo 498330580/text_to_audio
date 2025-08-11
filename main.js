@@ -282,3 +282,75 @@ ipcMain.handle('create-directory', async (event, dirPath) => {
     return { success: false, error: error.message };
   }
 });
+
+/**
+ * IPC处理器：读取文件
+ */
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const data = fs.readFileSync(filePath);
+    return data;
+  } catch (error) {
+    console.error('读取文件失败:', error);
+    return null;
+  }
+});
+
+/**
+ * IPC处理器：删除文件
+ */
+ipcMain.handle('delete-file', async (event, filePath) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * IPC处理器：获取自定义音色列表
+ */
+ipcMain.handle('get-custom-voices', async () => {
+  try {
+    const audioDir = path.join(__dirname, 'data', 'audio');
+    
+    // 确保目录存在
+    if (!fs.existsSync(audioDir)) {
+      fs.mkdirSync(audioDir, { recursive: true });
+      return [];
+    }
+    
+    const files = fs.readdirSync(audioDir);
+    const customVoices = [];
+    
+    for (const file of files) {
+      // 检查是否为音频文件
+      const ext = path.extname(file).toLowerCase();
+      if (['.wav', '.mp3', '.m4a', '.flac'].includes(ext)) {
+        // 解析文件名格式：{{参考名称}}-{{参考文本}}.ext
+        const nameWithoutExt = path.basename(file, ext);
+        const parts = nameWithoutExt.split('-');
+        
+        if (parts.length >= 2) {
+          const voiceName = parts[0];
+          const referenceText = parts.slice(1).join('-'); // 处理参考文本中可能包含的'-'
+          
+          customVoices.push({
+            name: voiceName,
+            referenceText: referenceText,
+            filePath: path.join(audioDir, file),
+            fileName: file
+          });
+        }
+      }
+    }
+    
+    return customVoices;
+  } catch (error) {
+    console.error('获取自定义音色失败:', error);
+    return [];
+  }
+});

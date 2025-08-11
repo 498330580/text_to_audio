@@ -67,5 +67,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /**
    * 创建目录
    */
-  createDirectory: (dirPath) => ipcRenderer.invoke('create-directory', dirPath)
+  createDirectory: (dirPath) => ipcRenderer.invoke('create-directory', dirPath),
+  
+  /**
+   * 读取文件
+   */
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  
+  /**
+   * 删除文件
+   */
+  deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  
+  /**
+   * 获取自定义音色列表
+   */
+  getCustomVoices: () => ipcRenderer.invoke('get-custom-voices')
 });

@@ -29,10 +29,61 @@ async function initializeApp() {
         // 初始化字符计数
         updateCharCount();
         
+        // 加载自定义音色
+        await loadCustomVoices();
+        
         console.log('应用初始化完成');
     } catch (error) {
         console.error('初始化失败:', error);
         showNotification('初始化失败', 'error');
+    }
+}
+
+/**
+ * 加载自定义音色
+ */
+async function loadCustomVoices() {
+    try {
+        const customVoices = await window.electronAPI.getCustomVoices();
+        
+        // 获取音色选择器
+        const voiceSelects = [
+            document.getElementById('voiceSelect'),
+            document.getElementById('fileVoiceSelect')
+        ];
+        
+        // 为每个音色选择器添加自定义音色选项
+        voiceSelects.forEach(select => {
+            if (select) {
+                // 移除之前添加的自定义音色选项（如果有）
+                const customOptions = select.querySelectorAll('option[data-custom="true"]');
+                customOptions.forEach(option => option.remove());
+                
+                // 添加分隔线（如果有自定义音色）
+                if (customVoices.length > 0) {
+                    const separator = document.createElement('option');
+                    separator.disabled = true;
+                    separator.textContent = '--- 自定义音色 ---';
+                    separator.setAttribute('data-custom', 'true');
+                    select.appendChild(separator);
+                    
+                    // 添加自定义音色选项
+                    customVoices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = `custom:${voice.fileName}`;
+                        option.textContent = voice.name;
+                        option.setAttribute('data-custom', 'true');
+                        option.setAttribute('data-reference-text', voice.referenceText);
+                        option.setAttribute('data-file-path', voice.filePath);
+                        select.appendChild(option);
+                    });
+                }
+            }
+        });
+        
+        console.log(`加载了 ${customVoices.length} 个自定义音色`);
+    } catch (error) {
+        console.error('加载自定义音色失败:', error);
     }
 }
 
@@ -141,7 +192,8 @@ function updateCloneSpeedValue() {
  */
 async function synthesizeText() {
     const text = document.getElementById('textInput').value.trim();
-    const role = document.getElementById('voiceSelect').value;
+    const voiceSelect = document.getElementById('voiceSelect');
+    const selectedVoice = voiceSelect.value;
     const speed = parseFloat(document.getElementById('speedSlider').value);
     
     if (!text) {
@@ -160,14 +212,35 @@ async function synthesizeText() {
     synthesizeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 合成中...';
     
     try {
-        showLoading('正在合成语音...\n首次使用可能需要加载模型，请耐心等待（约2-5分钟）');
+        let result;
         
-        const result = await window.electronAPI.textToSpeech({
-            text,
-            role,
-            speed,
-            version: 'v2'
-        });
+        // 检查是否为自定义音色
+        if (selectedVoice.startsWith('custom:')) {
+            // 使用自定义音色进行克隆合成
+            const selectedOption = voiceSelect.querySelector(`option[value="${selectedVoice}"]`);
+            const referenceAudioPath = selectedOption.getAttribute('data-file-path');
+            const referenceText = selectedOption.getAttribute('data-reference-text');
+            
+            showLoading('正在使用自定义音色合成语音...\n首次使用可能需要加载模型，请耐心等待（约2-5分钟）');
+            
+            result = await window.electronAPI.voiceClone({
+                text,
+                referenceAudio: referenceAudioPath,
+                referenceText: referenceText,
+                speed,
+                version: 'v2'
+            });
+        } else {
+            // 使用内置音色
+            showLoading('正在合成语音...\n首次使用可能需要加载模型，请耐心等待（约2-5分钟）');
+            
+            result = await window.electronAPI.textToSpeech({
+                text,
+                role: selectedVoice,
+                speed,
+                version: 'v2'
+            });
+        }
         
         if (result.success) {
             // 获取默认保存路径
@@ -359,64 +432,151 @@ async function batchSynthesize() {
     batchBtn.disabled = true;
     batchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 合成中...';
     
-    const voice = document.getElementById('fileVoiceSelect').value;
+    const fileVoiceSelect = document.getElementById('fileVoiceSelect');
+    const selectedVoice = fileVoiceSelect.value;
     const speed = parseFloat(document.getElementById('fileSpeedSlider').value);
     const segmentSize = parseInt(document.getElementById('segmentSize').value);
     
     try {
-        // 获取默认保存路径
-        const defaultSaveDir = await getDefaultSavePath();
+        // 获取应用路径
+        const appPath = await window.electronAPI.getAppPath();
         
-        // 创建保存目录
-        await window.electronAPI.createDirectory(defaultSaveDir);
+        // 创建tmp和data/txt_to_audio目录
+        const tmpDir = `${appPath}/tmp`;
+        const outputDir = `${appPath}/data/txt_to_audio`;
+        await window.electronAPI.createDirectory(tmpDir);
+        await window.electronAPI.createDirectory(outputDir);
         
-        // 生成文件名（使用时间戳和原文件名）
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        // 生成文件名（使用txt文件的名称）
         const originalName = selectedFile.name.replace(/\.[^/.]+$/, ''); // 移除扩展名
-        const fileName = `批量合成_${originalName}_${timestamp}.wav`;
-        const saveFilePath = `${defaultSaveDir}/${fileName}`;
+        const finalFileName = `${originalName}.wav`;
+        const finalFilePath = `${outputDir}/${finalFileName}`;
         
         // 分割文本
         const segments = splitText(selectedFile.content, segmentSize);
-        const audioBuffers = [];
+        const segmentFiles = [];
         
         // 显示进度
         showProgress();
         
+        // 合成各个分段并保存到tmp文件夹
+        let referenceAudioPath = null;
+        
         for (let i = 0; i < segments.length; i++) {
             const progressText = i === 0 ? 
                 `正在合成第 ${i + 1} 段...\n首次使用可能需要加载模型，请耐心等待` : 
-                `正在合成第 ${i + 1} 段...`;
-            updateProgress(i + 1, segments.length, progressText);
+                `正在合成第 ${i + 1} 段...\n使用音色克隆保持音色一致性`;
+            updateProgress(i + 1, segments.length + 1, progressText);
             
-            const result = await window.electronAPI.textToSpeech({
-                text: segments[i],
-                role: voice,
-                speed,
-                version: 'v2'
-            });
+            let result;
             
-            if (result.success) {
-                audioBuffers.push(result.data);
+            if (i === 0) {
+                // 第一段处理：如果是自定义音色直接使用克隆，否则使用内置音色生成
+                if (selectedVoice.startsWith('custom:')) {
+                    // 使用自定义音色进行克隆合成
+                    const selectedOption = fileVoiceSelect.querySelector(`option[value="${selectedVoice}"]`);
+                    const customReferenceAudioPath = selectedOption.getAttribute('data-file-path');
+                    const customReferenceText = selectedOption.getAttribute('data-reference-text');
+                    
+                    result = await window.electronAPI.voiceClone({
+                        text: segments[i],
+                        referenceAudio: customReferenceAudioPath,
+                        referenceText: customReferenceText,
+                        speed,
+                        version: 'v2'
+                    });
+                    
+                    // 设置参考音频为自定义音色文件，后续段落继续使用
+                    referenceAudioPath = customReferenceAudioPath;
+                } else {
+                    // 使用内置音色生成，作为后续克隆的参考
+                    result = await window.electronAPI.textToSpeech({
+                        text: segments[i],
+                        role: selectedVoice,
+                        speed,
+                        version: 'v2'
+                    });
+                }
+                
+                if (result.success) {
+                    // 保存第一段音频
+                    const segmentFileName = `${originalName}_segment_${i + 1}.wav`;
+                    const segmentFilePath = `${tmpDir}/${segmentFileName}`;
+                    await window.electronAPI.saveFile(segmentFilePath, result.data);
+                    segmentFiles.push(segmentFilePath);
+                    
+                    // 如果是内置音色，将第一段作为参考音频
+                    if (!selectedVoice.startsWith('custom:')) {
+                        referenceAudioPath = segmentFilePath;
+                    }
+                } else {
+                    throw new Error(`第 ${i + 1} 段合成失败: ${result.error}`);
+                }
             } else {
-                throw new Error(`第 ${i + 1} 段合成失败: ${result.error}`);
+                // 后续分段使用音色克隆，保持音色一致性
+                let referenceText;
+                
+                if (selectedVoice.startsWith('custom:')) {
+                    // 如果是自定义音色，使用自定义音色的参考文本
+                    const selectedOption = fileVoiceSelect.querySelector(`option[value="${selectedVoice}"]`);
+                    referenceText = selectedOption.getAttribute('data-reference-text');
+                } else {
+                    // 如果是内置音色，使用第一段文本作为参考文本
+                    referenceText = segments[0];
+                }
+                
+                result = await window.electronAPI.voiceClone({
+                    text: segments[i],
+                    referenceAudio: referenceAudioPath,
+                    referenceText: referenceText,
+                    speed,
+                    version: 'v2'
+                });
+                
+                if (result.success) {
+                    // 保存分段音频到tmp文件夹
+                    const segmentFileName = `${originalName}_segment_${i + 1}.wav`;
+                    const segmentFilePath = `${tmpDir}/${segmentFileName}`;
+                    await window.electronAPI.saveFile(segmentFilePath, result.data);
+                    segmentFiles.push(segmentFilePath);
+                } else {
+                    throw new Error(`第 ${i + 1} 段合成失败: ${result.error}`);
+                }
             }
             
             // 添加延迟避免请求过快
             await new Promise(resolve => setTimeout(resolve, 500));
         }
         
-        updateProgress(segments.length, segments.length, '正在合并音频...');
+        updateProgress(segments.length + 1, segments.length + 1, '正在合并音频文件...');
+        
+        // 读取所有分段文件并合并
+        const audioBuffers = [];
+        for (const segmentFile of segmentFiles) {
+            const buffer = await window.electronAPI.readFile(segmentFile);
+            if (buffer) {
+                audioBuffers.push(buffer);
+            }
+        }
         
         // 合并音频（简单拼接）
         const mergedBuffer = mergeAudioBuffers(audioBuffers);
-        await window.electronAPI.saveFile(saveFilePath, mergedBuffer);
+        await window.electronAPI.saveFile(finalFilePath, mergedBuffer);
+        
+        // 清理tmp文件夹中的分段文件
+        for (const segmentFile of segmentFiles) {
+            try {
+                await window.electronAPI.deleteFile(segmentFile);
+            } catch (error) {
+                console.warn(`清理临时文件失败: ${segmentFile}`, error);
+            }
+        }
         
         hideProgress();
-        showNotification('批量合成完成！', 'success');
+        showNotification(`批量合成完成！文件已保存为: ${finalFileName}`, 'success');
         
         if (confirm('批量合成完成！是否打开文件所在文件夹？')) {
-            await window.electronAPI.openFolder(saveFilePath);
+            await window.electronAPI.openFolder(finalFilePath);
         }
         
     } catch (error) {
