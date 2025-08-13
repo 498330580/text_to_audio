@@ -37,10 +37,6 @@
                     <i class="fas fa-file-alt"></i>
                     文件转语音
                 </button>
-                <button class="tab-btn" data-tab="voice-clone">
-                    <i class="fas fa-clone"></i>
-                    音色克隆
-                </button>
             </div>
 
             <!-- 文本转语音面板 -->
@@ -157,65 +153,7 @@
                 </div>
             </div>
 
-            <!-- 音色克隆面板 -->
-            <div class="tab-content" id="voice-clone">
-                <div class="panel">
-                    <h2><i class="fas fa-clone"></i> 音色克隆</h2>
-                    
-                    <div class="form-group">
-                        <label>参考音频：</label>
-                        <div class="audio-upload-area" id="audioUploadArea">
-                            <i class="fas fa-music"></i>
-                            <p>点击选择音频文件</p>
-                            <small>支持.wav, .mp3, .m4a格式</small>
-                        </div>
-                        <div class="audio-info" id="audioInfo" style="display: none;">
-                            <div class="audio-details">
-                                <i class="fas fa-file-audio"></i>
-                                <div>
-                                    <div class="audio-name" id="audioName"></div>
-                                    <div class="audio-size" id="audioSize"></div>
-                                </div>
-                            </div>
-                            <button class="btn btn-sm btn-secondary" id="clearAudioBtn">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="referenceText">参考音频对应文本（同语言克隆需要）：</label>
-                        <textarea id="referenceText" placeholder="请输入参考音频中说话的内容..." rows="3"></textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="cloneText">要合成的文本：</label>
-                        <textarea id="cloneText" placeholder="请输入要用克隆音色合成的文本..." rows="4"></textarea>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="cloneSpeedSlider">语速：<span id="cloneSpeedValue">1.0</span></label>
-                            <input type="range" id="cloneSpeedSlider" min="0.5" max="2.0" step="0.1" value="1.0">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="cloneVersion">模型版本：</label>
-                            <select id="cloneVersion">
-                                <option value="v2">v2 (高质量)</option>
-                                <option value="v1">v1 (快速)</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" id="cloneBtn" disabled>
-                            <i class="fas fa-magic"></i>
-                            开始克隆
-                        </button>
-                    </div>
-                </div>
-            </div>
+
         </main>
 
         <!-- 设置模态框 -->

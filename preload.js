@@ -34,10 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   textToSpeech: (data) => ipcRenderer.invoke('text-to-speech', data),
   
-  /**
-   * 音色克隆
-   */
-  voiceClone: (data) => ipcRenderer.invoke('voice-clone', data),
+
   
   /**
    * 保存文件
@@ -79,8 +76,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
   
-  /**
-   * 获取自定义音色列表
-   */
-  getCustomVoices: () => ipcRenderer.invoke('get-custom-voices')
+
 });
