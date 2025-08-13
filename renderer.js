@@ -383,25 +383,56 @@ async function batchSynthesize() {
         showProgress();
         
         // 合成各个分段并保存到tmp文件夹
+        let referenceAudioPath = null;
+        
         for (let i = 0; i < segments.length; i++) {
-            updateProgress(i + 1, segments.length + 1, `正在合成第 ${i + 1} 段...`);
+            const progressText = i === 0 ? 
+                `正在合成第 ${i + 1} 段...\n首次使用可能需要加载模型，请耐心等待` : 
+                `正在合成第 ${i + 1} 段...\n使用音色克隆保持音色一致性`;
+            updateProgress(i + 1, segments.length + 1, progressText);
             
-            // 使用内置音色合成
-            const result = await window.electronAPI.textToSpeech({
-                text: segments[i],
-                role: selectedVoice,
-                speed,
-                version: 'v2'
-            });
+            let result;
             
-            if (result.success) {
-                // 保存分段音频到tmp文件夹
-                const segmentFileName = `${originalName}_segment_${i + 1}.wav`;
-                const segmentFilePath = `${tmpDir}/${segmentFileName}`;
-                await window.electronAPI.saveFile(segmentFilePath, result.data);
-                segmentFiles.push(segmentFilePath);
+            if (i === 0) {
+                // 第一段使用内置音色生成，作为后续克隆的参考
+                result = await window.electronAPI.textToSpeech({
+                    text: segments[i],
+                    role: selectedVoice,
+                    speed,
+                    version: 'v2'
+                });
+                
+                if (result.success) {
+                    // 保存第一段音频
+                    const segmentFileName = `${originalName}_segment_${i + 1}.wav`;
+                    const segmentFilePath = `${tmpDir}/${segmentFileName}`;
+                    await window.electronAPI.saveFile(segmentFilePath, result.data);
+                    segmentFiles.push(segmentFilePath);
+                    
+                    // 将第一段作为参考音频
+                    referenceAudioPath = segmentFilePath;
+                } else {
+                    throw new Error(`第 ${i + 1} 段合成失败: ${result.error}`);
+                }
             } else {
-                throw new Error(`第 ${i + 1} 段合成失败: ${result.error}`);
+                // 后续分段使用音色克隆，保持音色一致性
+                result = await window.electronAPI.voiceClone({
+                    text: segments[i],
+                    referenceAudio: referenceAudioPath,
+                    referenceText: segments[0], // 使用第一段文本作为参考文本
+                    speed,
+                    version: 'v2'
+                });
+                
+                if (result.success) {
+                    // 保存分段音频到tmp文件夹
+                    const segmentFileName = `${originalName}_segment_${i + 1}.wav`;
+                    const segmentFilePath = `${tmpDir}/${segmentFileName}`;
+                    await window.electronAPI.saveFile(segmentFilePath, result.data);
+                    segmentFiles.push(segmentFilePath);
+                } else {
+                    throw new Error(`第 ${i + 1} 段合成失败: ${result.error}`);
+                }
             }
             
             // 添加延迟避免请求过快

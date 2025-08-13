@@ -73,8 +73,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   /**
    * 删除文件
-   */
+   */// 删除文件
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
   
+  // 音色克隆
+  voiceClone: (data) => ipcRenderer.invoke('voice-clone', data),  
 
 });

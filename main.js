@@ -297,3 +297,55 @@ ipcMain.handle('delete-file', async (event, filePath) => {
     return { success: false, error: error.message };
   }
 });
+
+/**
+ * IPC处理器：音色克隆
+ */
+ipcMain.handle('voice-clone', async (event, data) => {
+  try {
+    const config = readConfig();
+    const { text, referenceAudio, referenceText, speed = 1.0, version = 'v2' } = data;
+    
+    // 创建FormData
+    const formData = new FormData();
+    formData.append('text', text);
+    formData.append('speed', speed.toString());
+    
+    // 读取参考音频文件
+    const audioBuffer = fs.readFileSync(referenceAudio);
+    formData.append('reference_audio', audioBuffer, {
+      filename: path.basename(referenceAudio),
+      contentType: 'audio/wav'
+    });
+    
+    // 根据版本选择接口
+    let endpoint;
+    if (referenceText && referenceText.trim()) {
+      // 同语言克隆（需要参考文本）
+      formData.append('reference_text', referenceText);
+      endpoint = version === 'v1' ? '/clone_eq' : '/clone_eq';
+    } else {
+      // 跨语言克隆（不需要参考文本）
+      endpoint = version === 'v1' ? '/clone' : '/clone';
+    }
+    
+    const response = await axios.post(`${config.apiUrl}${endpoint}`, formData, {
+      headers: {
+        ...formData.getHeaders(),
+      },
+      responseType: 'arraybuffer',
+      timeout: 300000 // 5分钟超时
+    });
+    
+    return {
+      success: true,
+      data: Buffer.from(response.data)
+    };
+  } catch (error) {
+    console.error('音色克隆失败:', error);
+    return {
+      success: false,
+      error: error.response?.data ? Buffer.from(error.response.data).toString() : error.message
+    };
+  }
+});
